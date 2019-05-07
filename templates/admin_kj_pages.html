@@ -1,0 +1,436 @@
+
+<div class="alert alert-info alert-dismissible fixed-top m-3 p-0 text-center small  d-none" id="pageErrors">
+    <span>...</span>
+    <button type="button" class="close py-0" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true" class="small" style="cursor:pointer">&times;</span>
+    </button>
+</div>
+
+<!-- Breadcrumbs -->
+<ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="./">{lang.R_CPINDEX}</a></li>
+    <li class="breadcrumb-item"><a href="{action}">{olang.R_KJ_PAGES_LIST}</a></li>
+    <IF NAME="current_case == edit">
+    <li class="breadcrumb-item">{page.page_title}</li>
+    </IF>
+</ol>
+
+<UNLESS NAME="current_case == edit">
+<ul class="nav nav-tabs mb-2">
+    <li class="nav-item">
+        <a class="nav-link (current_case == list?active:)" href="{action}">قائمة الصفحات</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link (current_case == categories?active:)" href="{action}&amp;type=categories">الأقسام</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link (current_case == settings?active:)" href="{action}&amp;type=settings">إعدادات صفحات إضافية</a>
+    </li>
+</ul>
+</IF>
+
+<IF NAME="current_case == list">
+<script>
+function deletePage(pageId) {
+		$.ajax({
+		url: '{action}&type=delete&_ajax_=1&page=' + pageId + '&{H_FORM_KEYS_GET}',
+        dataType: 'json',
+		cache: false})
+		.done(function (data) {
+			if(data.content){
+                $('#pageErrors>span').html(data.content);
+                $('#pageErrors').removeClass('d-none alert-danger').addClass('alert-info');
+                $('#page'+pageId).remove();
+			} else {
+				this.fail();
+			}
+		})
+		.fail(function(data) {
+            $('#pageErrors>span').html((data.content ? data.content : (data.responseJSON ? data.responseJSON.content  : '{lang.ERROR_TRY_AGAIN}')));
+            $('#pageErrors').removeClass('d-none alert-info').addClass('alert-danger');
+        });
+        
+        return false;
+}
+</script>
+
+
+<a href="#" class="btn btn-primary pull-(lang.DIR==ltr?right:left)" data-toggle="modal" data-target="#page_add_new">
+    <i class="fa fa-plus-circle"></i> {olang.KJ_PAGES_NEW_PAGE}
+</a>
+<div class="clearfix"></div>
+
+
+
+<UNLESS NAME="pages">
+<div class="card bg-light mt-3">
+  <div class="card-header">{lang.WELCOME}</div>
+  <div class="card-body">
+    <h5 class="card-title">{olang.KJ_PAGES_NO_PAGES_YET}</h5>
+    <p class="card-text">{olang.KJ_PAGES_NO_PAGES_YET_EXP}</p>
+  </div>
+</div>
+</IF>
+
+<div class="list-group mt-4 p-0">
+<LOOP NAME="pages">
+    <div class="list-group-item p-2 d-flex justify-content-between" id="page{{page_id}}">
+        <a href="{action}&amp;p={{page_id}}" class="">
+        {{page_title}} 
+        <br>
+        <small class="badge  badge-secondary font-weight-normal" style="font-size:12px">
+            {{page_slug}}
+        </small>  
+        </a>
+        <div>
+            <button type="button" class="btn-danger btn-sm" onclick="deletePage({{page_id}});"><i class="fa fa-fw fa-trash"></i> {lang.DELETE}</button>
+        </div>
+    </div>
+</LOOP>
+</div>
+
+
+
+<!-- new page modal -->
+<div id="page_add_new" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="addNewPage" aria-hidden="true">
+
+    <form method="post" action="{action}&amp;type=new" id="add_page_form">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addNewPage">{olang.KJ_PAGES_NEW_PAGE}</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+
+                    <div class="alert alert-info">
+                    {olang.KJ_PAGES_NEW_PAGE_EXP}
+                    </div>
+
+                    {H_FORM_KEYS}
+                </div>
+                <div class="modal-footer">
+                    <input type="hidden" name="type" value="new">
+                    <input type="submit" name="submit" class="btn btn-primary" value="{olang.KJ_PAGES_CREATE}">
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+<!-- end new page modal -->
+
+<ELSEIF NAME="current_case == edit">
+
+<link rel="stylesheet" type="text/css" href="{pluginUrlPath}/trumbowyg/ui/trumbowyg.min.css">
+
+<script>
+function loadWhenQueryIsReady() {
+    setTimeout(function() {
+        if (typeof jQuery == 'undefined' && typeof window.jQuery == 'undefined') {
+            loadWhenQueryIsReady();
+        } else {
+            var timeoutId;
+            $('#editform').on('input propertychange change', function() {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(function() {
+                    updatePage(1);
+                }, 1000 * 30);
+            });
+
+            $("#realSave").click(function() {
+                updatePage(0);
+                setTimeout(function() {
+                    location.href = '{action}';
+                }, 2000);
+                return false;
+            });
+
+            $.getScript('{pluginUrlPath}/trumbowyg/trumbowyg.min.js', function() {
+                var load = function() {
+                    $.trumbowyg.svgPath = '{pluginUrlPath}/trumbowyg/ui/icons.svg';
+                    $('#snap_content').trumbowyg({lang: '{currentLang}'});
+                };
+                <IF NAME="currentLang == en">
+                    load();
+                <ELSE/>
+                    $.getScript('{pluginUrlPath}/trumbowyg/langs/{currentLang}.min.js', load);
+                </IF>
+            });
+        }
+    }, 500);
+}
+loadWhenQueryIsReady();
+
+function updatePage(autosave) {
+		$.ajax({
+        type: 'POST',
+		url: '{action}&type=save&_ajax_=1&autosave=' + autosave,
+        dataType: 'json',
+        data: $('form').serialize(),
+		cache: false})
+		.done(function (data) {
+			if(data.content){
+                $('#pageErrors>span').html(data.content);
+                $('#pageErrors').removeClass('d-none alert-danger').addClass('alert-info');
+                if(autosave) {
+                    $('#pageErrors').delay(2000).queue(function(){
+                        $(this).addClass("d-none").dequeue();
+                    });
+                }
+			} else {
+				this.fail();
+			}
+		})
+		.fail(function(data) {
+            $('#pageErrors>span').html((data.content ? data.content : (data.responseJSON ? data.responseJSON.content  : '{lang.ERROR_TRY_AGAIN}')));
+            $('#pageErrors').removeClass('d-none alert-info').addClass('alert-danger');
+		});
+}
+</script>
+
+
+    <form method="post" action="{action}&amp;p={page.page_id}" id="editform">
+
+        <input type="hidden" value="{page.page_id}" name="page_id">
+        <input type="hidden" value="{snap.snap_id}" name="snap_id">
+
+        <div class="form-group">
+            <label for="name">{olang.KJ_PAGES_PAGE_TITLE}</label>
+            <input type="text" class="form-control" name="page_title" id="page_title" aria-describedby="nameHelp" placeholder="" value="{page.page_title}">
+        </div>
+
+        <div class="form-group">
+            <label for="host">{olang.KJ_PAGES_PAGE_SLUG}</label>
+            <input type="text" class="form-control" name="page_slug" id="page_slug" placeholder="" aria-describedby="pageslug_help" value="{page.page_slug}">
+            <small id="pageslug_help" class="form-text text-muted">{olang.KJ_PAGE_PAGE_SLUG_EXP}</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="snap_content">{olang.KJ_PAGES_PAGE_CONTENT}</label>
+            <IF NAME="recovered">
+            <div class="alert alert-info alert-dismissible fade show small" role="alert">
+                {recovered}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true" class="small" style="cursor:pointer">&times;</span>
+                </button>
+            </div>
+            </IF>
+            <textarea name="snap_content" id="snap_content" placeholder="{olang.KJ_PAGES_PAGE_CONTENT}" class="invisible">{snap.snap_content}</textarea>
+        </div>
+
+        <button id="realSave" class="btn btn-primary mt-2">{lang.UPDATE}</button>
+        <!-- <input type="submit" name="submit" class="btn btn-primary mt-2" value="{lang.UPDATE}"> -->
+
+        {H_FORM_KEYS}
+
+    </form>
+
+<ELSEIF NAME="current_case == categories">
+<script>
+function deleteCategory(catId) {
+		$.ajax({
+		url: '{action}&type=delete_category&_ajax_=1&category=' + catId + '&{H_FORM_KEYS_GET}',
+        dataType: 'json',
+		cache: false})
+		.done(function (data) {
+			if(data.content){
+                $('#pageErrors>span').html(data.content);
+                $('#pageErrors').removeClass('d-none alert-danger').addClass('alert-info');
+                $('#category'+catId).remove();
+			} else {
+				this.fail();
+			}
+		})
+		.fail(function(data) {
+            $('#pageErrors>span').html((data.content ? data.content : (data.responseJSON ? data.responseJSON.content  : '{lang.ERROR_TRY_AGAIN}')));
+            $('#pageErrors').removeClass('d-none alert-info').addClass('alert-danger');
+        });
+        
+        return false;
+}
+</script>
+
+<a href="#" class="btn btn-primary pull-(lang.DIR==ltr?right:left)" data-toggle="modal" data-target="#category_add_new">
+    <i class="fa fa-plus-circle"></i> {olang.KJ_PAGES_NEW_CATEGORY}
+</a>
+<div class="clearfix"></div>
+
+<UNLESS NAME="categories">
+<div class="card bg-light mt-3">
+  <div class="card-header">{lang.WELCOME}</div>
+  <div class="card-body">
+    <h5 class="card-title">{olang.KJ_PAGES_NO_CATEGORIES_YET}</h5>
+    <p class="card-text">{olang.KJ_PAGES_NO_CATEGORIES_YET_EXP}</p>
+  </div>
+</div>
+</IF>
+
+<div class="list-group mt-4 p-0">
+<LOOP NAME="categories">
+    <div class="list-group-item p-2 d-flex justify-content-between" id="category{{cat_id}}">
+        <a href="{action}&amp;c={{cat_id}}" class="">
+        <h3>{{cat_title}} </h3>
+        <br>
+        <small class="badge  badge-secondary font-weight-normal" style="font-size:12px">
+            {{cat_name}}
+        </small>  
+        </a>
+        <div>
+            <button type="button" class="btn-danger btn-sm" onclick="deleteCategory({{cat_id}});"><i class="fa fa-fw fa-trash"></i> {lang.DELETE}</button>
+        </div>
+    </div>
+</LOOP>
+</div>
+
+<!-- new category modal -->
+<div id="category_add_new" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="addNewCategory" aria-hidden="true">
+
+    <form method="post" action="{action}&amp;type=new_category" id="add_category_form">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addNewCategory">{olang.KJ_PAGES_NEW_CATEGORY}</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+
+                    <div class="alert alert-info">
+                        {olang.KJ_PAGES_NEW_CATEGORY_EXP}
+                    </div>
+
+                    {H_FORM_KEYS}
+                </div>
+                <div class="modal-footer">
+                    <input type="hidden" name="type" value="new">
+                    <input type="submit" name="submit" class="btn btn-primary" value="{olang.KJ_PAGES_CREATE}">
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+<!-- end new page modal -->
+
+<ELSEIF NAME="current_case == edit_category">
+
+    <form method="post" action="{action}&amp;c={category_id}" id="editform">
+
+        <div class="form-group">
+            <label for="name">{olang.KJ_PAGES_CATEGORY_TITLE}</label>
+            <input type="text" class="form-control" name="cat_title" id="cat_title" aria-describedby="nameHelp" placeholder="" value="{category.cat_title}">
+        </div>
+
+        <div class="form-group">
+            <label for="host">{olang.KJ_PAGES_CATEGORY_NAME}</label>
+            <input type="text" class="form-control" name="cat_name" id="cat_name" placeholder="" aria-describedby="cat_name_help" value="{category.cat_name}">
+            <small id="cat_name_help" class="form-text text-muted">{olang.KJ_PAGES_CATEGORY_NAME_EXP}</small>
+        </div>
+
+        <input type="submit" name="submit" class="btn btn-primary mt-2" value="{lang.UPDATE}">
+
+        {H_FORM_KEYS}
+    </form>
+<ELSEIF NAME="current_case == settings">
+
+<script>
+var updatingInProcess = false;
+function updateSetting(settingName, settingValue, ActiveTag) {
+    if(updatingInProcess) {
+        alert('wait...');
+        return;
+    }
+
+    updatingInProcess = true;
+    $(ActiveTag).parent().parent().css('opacity', '0.4').css('pointer-events', 'none');
+
+	$.ajax({
+        type: 'POST',
+		url: '{action}&type=settings_update&_ajax_=1&{H_FORM_KEYS_GET}',
+        dataType: 'json',
+        data: {item: settingName, value: settingValue},
+		cache: false})
+		.done(function (data) {
+			if(data.content){
+                updatingInProcess = false;
+                $(ActiveTag).parent().parent().css('opacity', '1').css('pointer-events', 'auto');
+                if(data.content == 'done') {
+                    $('#pageErrors>span').html('{lang.CONFIGS_UPDATED}');
+                    $('#pageErrors').removeClass('d-none alert-danger').addClass('alert-info');
+                     $(ActiveTag).siblings().removeClass('active');
+                     $(ActiveTag).addClass('active');
+                }
+			} else {
+				this.fail();
+			}
+		})
+		.fail(function(data) {
+            updatingInProcess = false;
+            $(ActiveTag).parent().parent().css('opacity', '1').css('pointer-events', 'auto');
+            $('#pageErrors>span').html((data.content ? data.content : (data.responseJSON ? data.responseJSON.content  : '{lang.ERROR_TRY_AGAIN}')));
+            $('#pageErrors').removeClass('d-none alert-info').addClass('alert-danger');
+        });
+        
+        return false;
+}
+</script>
+
+<div class="card bg-light mt-5" id="homepageSetting">
+    <div class="card-header">محتوى صفحة بداية الموقع</div>
+    <div class="card-body m-0 row justify-content-between btn-group">
+        <div class="col-md-4 text-center btn btn-outline-dark homepage active" style="cursor:pointer" onclick="updateSetting('homepage', 'default', this);">
+            <i class="fa fa-fw fa-upload fa-2x p-1"></i>
+            <h5>رفع الملفات</h5>
+        </div>
+        <div class="col-md-4 text-center btn btn-outline-dark homepage" style="cursor:pointer" onclick="updateSetting('homepage', 'list', this);">
+            <i class="fa fa-fw fa-th fa-2x p-1"></i>
+            <h5>آخر الصفحات</h5>
+        </div>
+        <div class="col-md-4 text-center btn btn-outline-dark homepage" style="cursor:pointer" onclick="updateSetting('homepage', 'page', this);">
+            <i class="fa fa-fw fa-file fa-2x p-1"></i>
+            <h5>صفحة محددة</h5>
+        </div>
+    </div>
+</div>
+
+
+<div class="card bg-light mt-5">
+    <div class="card-header">شكل روابط الصفحات</div>
+    <div class="card-body p-0">
+        <ul class="list-group list-group-flush" style="direction:ltr">
+            <li class="list-group-item active" style="cursor:pointer" onclick="updateSetting('url_format', '1', this);">
+                /p/&#123;page_slug&#125;
+                <div class="text-muted">/p/saudi-arabia-history</div>
+            </li>
+            <li class="list-group-item" style="cursor:pointer" onclick="updateSetting('url_format', '2', this);">
+                /p/&#123;page_id&#125;
+                <div class="text-muted">/p/1932</div>
+            </li>
+            <li class="list-group-item" style="cursor:pointer" onclick="updateSetting('url_format', '3', this);">
+                /&#123;page_slug&#125;
+                <div class="text-muted">/saudi-arabia-history</div>
+            </li>
+            <li class="list-group-item"  style="cursor:pointer" onclick="updateSetting('url_format', '4', this);">
+                /&#123;cat_name&#125;/&#123;page_slug&#125;
+                <div class="text-muted">/countries/saudi-arabia-history</div>
+            </li>
+            <li class="list-group-item"  style="cursor:pointer" onclick="updateSetting('url_format', '5', this);">
+                /&#123;day&#125;/&#123;month&#125;/&#123;year&#125;/&#123;page_slug&#125;
+                <div class="text-muted">/3/8/2019/saudi-arabia-history</div>
+            </li>
+            <li class="list-group-item"  style="cursor:pointer" onclick="updateSetting('url_format', '6', this);">
+                /&#123;month&#125;/&#123;year&#125;/&#123;page_slug&#125;
+                <div class="text-muted">/8/2019/saudi-arabia-history</div>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="card bg-light mt-5">
+    <div class="card-header">عرض/إخفاء عناصر من القائمة الرئيسية</div>
+</div>
+
+
+</IF>
